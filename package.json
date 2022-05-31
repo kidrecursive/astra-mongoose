@@ -27,7 +27,7 @@
     "url": "git+https://github.com/datastax/astrajs.git"
   },
   "scripts": {
-    "test": "nyc ts-mocha --paths -p tsconfig.json tests/driver/index.test.ts",
+    "test": "nyc ts-mocha --paths -p tsconfig.json tests/**/*.test.ts",
     "build": "tsc --project tsconfig.build.json",
     "build:docs": "jsdoc2md -t README.hbs --files src/**/*.ts --configure ./jsdoc2md.json > README.md"
   },
