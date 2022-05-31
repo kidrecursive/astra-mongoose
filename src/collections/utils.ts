@@ -14,6 +14,7 @@
 
 import _ from 'lodash';
 import url from 'url';
+import { ObjectId } from 'mongodb';
 
 interface ParsedUri {
   baseUrl: string;
@@ -85,4 +86,55 @@ export const createAstraUri = (
     uri += `?applicationToken=${applicationToken}`;
   }
   return uri;
+};
+
+/**
+ *
+ * @param doc
+ * @returns
+ */
+export const addDefaultId = (doc: any) => {
+  if (!doc._id) {
+    doc._id = new ObjectId().toHexString();
+  }
+  return doc;
+};
+
+/**
+ *
+ * @param options
+ * @param cb
+ * @returns
+ */
+export const setOptionsAndCb = (options: any, cb: any) => {
+  if (typeof options === 'function') {
+    cb = options;
+    options = {};
+  }
+  return { options, cb };
+};
+
+/**
+ * executeOperation handles running functions that have a callback parameter and that also can
+ * return a promise.
+ * @param operation a function that takes no parameters and returns a response
+ * @param cb a node callback function
+ * @returns Promise
+ */
+export const executeOperation = async (operation: any, cb: any) => {
+  let res = {};
+  let err = undefined;
+  try {
+    res = await operation();
+  } catch (e) {
+    console.error(e);
+    err = e;
+  }
+  if (cb) {
+    return cb(err, res);
+  }
+  if (err) {
+    throw err;
+  }
+  return res;
 };

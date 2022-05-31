@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ObjectId, AggregateOptions, AggregationCursor, Logger } from 'mongodb';
-import { FindCursor } from './cursor';
-import { formatQuery } from './utils';
-import { HTTPClient } from '@/src/client';
 import _ from 'lodash';
+import { FindCursor } from './cursor';
+import { HTTPClient } from '@/src/client';
+import { formatQuery, addDefaultId, setOptionsAndCb, executeOperation } from './utils';
 
 interface DocumentCallback {
   (err: Error | undefined, res: any): void;
@@ -50,99 +49,58 @@ export class Collection {
    * @param cb
    * @returns Promise
    */
-  async insertOne(mongooseDoc: any, options?: any, cb?: DocumentCallback): Promise<any> {
-    if (typeof options === 'function') {
-      cb = options;
-      options = {};
-    }
-    let res: any = {};
-    let err = undefined;
-    try {
-      if (!mongooseDoc._id) {
-        mongooseDoc._id = new ObjectId().toHexString();
+  async insertOne(doc: Record<string, any>, options?: any, cb?: DocumentCallback): Promise<any> {
+    ({ options, cb } = setOptionsAndCb(options, cb));
+    return executeOperation(async () => {
+      addDefaultId(doc);
+      const res = await this.httpClient.put(`/${doc._id}`, doc, options);
+      if (res.documentId) {
+        res.insertedId = res.documentId;
+        delete res.documentId;
       }
-      res = await this.httpClient.put(`/${mongooseDoc._id}`, mongooseDoc);
-    } catch (e: any) {
-      console.error(e);
-      err = e;
-    }
-    if (res.documentId) {
-      res.insertedId = res.documentId;
-      delete res.documentId;
-    }
-    if (cb) {
-      return cb(err, res);
-    }
-    if (err) {
-      throw err;
-    }
-    return res;
+      return res;
+    }, cb);
   }
 
-  async insertMany(mongooseDocs: any, options?: any, cb?: any) {
-    if (typeof options === 'function') {
-      cb = options;
-      options = {};
-    }
-    let res = {};
-    let err = null;
-    mongooseDocs = mongooseDocs.map((mongooseDoc: any) => {
-      if (!mongooseDoc._id) {
-        mongooseDoc._id = new ObjectId().toHexString();
-      }
-      return mongooseDoc;
-    });
-    try {
-      res = await this.httpClient.post('/batch', mongooseDocs, { params: { 'id-path': '_id' } });
-    } catch (e) {
-      err = e;
-    }
-    if (cb) {
-      return cb(err, res);
-    }
-    return res;
+  async insertMany(docs: any, options?: any, cb?: any) {
+    ({ options, cb } = setOptionsAndCb(options, cb));
+    return executeOperation(async () => {
+      docs = docs.map((doc: any) => addDefaultId(doc));
+      return await this.httpClient.post('/batch', docs, { params: { 'id-path': '_id' } });
+    }, cb);
   }
 
   async updateMany(query: any, update: any, options: any, cb: any) {
-    if (typeof options === 'function') {
-      cb = options;
-      options = {};
-    }
-    if (update.$set) {
-      update = {
-        ...update.$set
-      };
-      delete update.$set;
-    }
-    try {
-      const docs = await this.httpClient.find(formatQuery(query, options));
-      if (docs.data) {
-        const res = await Promise.all(
-          _.keys(docs.data).map(docId => {
-            return this.httpClient.update(docId, update);
+    ({ options, cb } = setOptionsAndCb(options, cb));
+    return executeOperation(async () => {
+      if (update.$set) {
+        update = {
+          ...update.$set
+        };
+        delete update.$set;
+      }
+      const cursor = await this.find(query, options);
+      const docs = cursor.toArray();
+      if (docs.length) {
+        return await Promise.all(
+          docs.map((doc: any) => {
+            return this.httpClient.patch(`${doc._id}`, update);
           })
         );
       }
-    } catch (e) {}
-    if (cb) {
-      return cb(null, null);
-    }
-    return null;
+    }, cb);
   }
 
   async updateOne(query: any, update: any, options: any, cb: any) {
-    if (typeof options === 'function') {
-      cb = options;
-      options = {};
-    }
-    if (update.$set) {
-      update = {
-        ...update.$set
-      };
-      delete update.$set;
-    }
-    try {
-      const doc = await this.httpClient.findOne(formatQuery(query, options));
+    ({ options, cb } = setOptionsAndCb(options, cb));
+    return executeOperation(async () => {
+      if (update.$set) {
+        update = {
+          ...update.$set
+        };
+        delete update.$set;
+      }
+      const doc = await this.findOne(query, options);
       if (doc) {
         if (update.$inc) {
           _.keys(update.$inc).forEach(incrementKey => {
@@ -154,23 +112,16 @@ export class Collection {
             delete update.$inc;
           });
         }
-        const res = await this.httpClient.update(doc._id, update);
+        const res = await this.httpClient.patch(`${doc._id}`, update);
         res.modifiedCount = 1;
         if (options?.returnDocument === 'after') {
           res.value = { ...doc, ...update };
         } else {
           res.value = { ...doc };
         }
-
-        if (cb) {
-          return cb(null, res);
-        }
+        return res;
       }
-    } catch (e) {}
-    if (cb) {
-      return cb(null, null);
-    }
-    return null;
+    }, cb);
   }
 
   async findOneAndUpdate(query: any, update: any, options: any, cb: any) {
@@ -178,120 +129,81 @@ export class Collection {
   }
 
   async replaceOne(query: any, newDoc: any, options: any, cb: any) {
-    if (typeof options === 'function') {
-      cb = options;
-      options = {};
-    }
-    try {
-      const doc = await this.httpClient.findOne(formatQuery(query, {}));
+    ({ options, cb } = setOptionsAndCb(options, cb));
+    return executeOperation(async () => {
+      const doc = await this.findOne(query, options);
       if (doc) {
-        const res = await this.httpClient.replace(doc._id, newDoc);
-        if (cb) {
-          return cb(null, res);
-        }
+        return await this.httpClient.replace(doc._id, newDoc);
       }
-    } catch (e) {}
-    if (cb) {
-      return cb(null, null);
-    }
-    return null;
+    }, cb);
   }
 
-  find(query: any, options: any, cb: any) {
+  async findOneAndDelete(query: any, options: any, cb: any) {
+    ({ options, cb } = setOptionsAndCb(options, cb));
+    return executeOperation(async () => {
+      const doc = await this.findOne(query, options);
+      if (doc) {
+        await this.httpClient.delete(`/${doc._id}`);
+        return { value: doc, deletedCount: 1 };
+      }
+    }, cb);
+  }
+
+  async remove(query: any, options: any, cb: any) {
+    ({ options, cb } = setOptionsAndCb(options, cb));
+    return executeOperation(async () => {
+      const cursor = await this.find(query, options);
+      const docs = cursor.toArray();
+      if (docs.length) {
+        const res = await Promise.all(
+          docs.map((doc: any) => this.httpClient.delete(`/${doc._id}`))
+        );
+        return { deletedCount: res.length };
+      }
+    }, cb);
+  }
+
+  find(query: any, options?: any, cb?: any) {
+    ({ options, cb } = setOptionsAndCb(options, cb));
     const cursor = new FindCursor(this, query, options);
     if (cb) {
-      return cb(null, cursor);
+      return cb(undefined, cursor);
     }
     return cursor;
   }
 
-  async distinct(key: any, filter: any, options: any, cb: any) {
-    const res = await this.httpClient.find(formatQuery(filter, options));
-    let list: any = [];
-    if (res.data) {
-      Object.keys(res.data).forEach(resKey => {
-        list = list.concat(res.data[resKey][key]);
-      });
-    }
-    list = _.uniq(list);
-    if (cb) {
-      return cb(null, list);
-    }
-    return list;
+  async findOne(query: any, options?: any, cb?: any) {
+    ({ options, cb } = setOptionsAndCb(options, cb));
+    return executeOperation(async () => {
+      const cursor = await this.find(query, { ...options, limit: 1 });
+      return cursor.toArray()[0];
+    }, cb);
   }
 
-  async countDocuments(query: any, options: any, cb: any) {
-    let count = 0;
-    try {
-      const res = await this.httpClient.find(formatQuery(query, options));
-      count = res.count ? res.count : Object.keys(res.data).length;
-    } catch (e) {}
-    if (cb) {
-      return cb(null, count);
-    }
-    return count;
-  }
-
-  async count(query: any, options: any, cb: any) {
-    return this.countDocuments(query, options, cb);
-  }
-
-  async findOne(query: any, options: any, cb: any) {
-    const res = await this.httpClient.findOne(formatQuery(query, options));
-    if (cb) {
-      return cb(null, res);
-    }
-    return res;
-  }
-
-  async createIndex(index: any, options: any, cb: any) {
-    if (cb) {
-      return cb(index);
-    }
-    return index;
-  }
-
-  async update() {}
-
-  async findOneAndDelete(query: any, options: any, cb: any) {
-    if (typeof options === 'function') {
-      cb = options;
-      options = {};
-    }
-    try {
-      const doc = await this.httpClient.findOne(formatQuery(query, options));
-      if (doc) {
-        const res = this.httpClient.delete(doc._id);
-        return cb(null, { value: doc, deletedCount: 1 });
-      }
-    } catch (e) {}
-    if (cb) {
-      return cb(null, null);
-    }
-    return null;
-  }
-
-  async remove(query: any, options: any, cb: any) {
-    if (typeof options === 'function') {
-      cb = options;
-      options = {};
-    }
-    try {
-      const docs = await this.httpClient.find(formatQuery(query, options));
-      if (docs.data) {
-        const res = await Promise.all(
-          _.keys(docs.data).map(docId => this.httpClient.delete(docId))
-        );
-        return cb(null, {
-          deletedCount: res.length
+  async distinct(key: any, filter: any, options?: any, cb?: any) {
+    ({ options, cb } = setOptionsAndCb(options, cb));
+    return executeOperation(async () => {
+      const res = await this.httpClient.find(formatQuery(filter, options));
+      let list: any[] = [];
+      if (res.data) {
+        _.keys(res.data).forEach(resKey => {
+          list = list.concat(res.data[resKey][key]);
         });
       }
-    } catch (e) {}
-    if (cb) {
-      return cb(null, null);
-    }
-    return null;
+      return _.uniq(list);
+    }, cb);
   }
+
+  async countDocuments(query: any, options?: any, cb?: any) {
+    ({ options, cb } = setOptionsAndCb(options, cb));
+    return executeOperation(async () => {
+      const cursor = await this.find(query, options);
+      const docs = cursor.toArray();
+      return docs.length;
+    }, cb);
+  }
+
+  // deprecated and overloaded
 
   async deleteMany(query: any, options: any, cb: any) {
     return this.remove(query, options, cb);
@@ -305,6 +217,14 @@ export class Collection {
     return this.findOneAndDelete(query, options, cb);
   }
 
+  async count(query: any, options: any, cb: any) {
+    return this.countDocuments(query, options, cb);
+  }
+
+  async update(query: any, update: any, options: any, cb: any) {
+    return this.updateMany(query, update, options, cb);
+  }
+
   // NOOPS and unimplemented
 
   /**
@@ -312,7 +232,21 @@ export class Collection {
    * @param pipeline
    * @param options
    */
-  aggregate<T>(pipeline?: Document[], options?: AggregateOptions): AggregationCursor<T> {
+  aggregate<T>(pipeline?: any[], options?: any) {
     throw new Error('Not Implemented');
+  }
+
+  /**
+   *
+   * @param index
+   * @param options
+   * @param cb
+   * @returns any
+   */
+  async createIndex(index: any, options: any, cb: any) {
+    if (cb) {
+      return cb(index);
+    }
+    return index;
   }
 }
