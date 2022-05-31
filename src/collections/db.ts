@@ -1,0 +1,99 @@
+// Copyright DataStax, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import { HTTPClient } from '@/src/client';
+import { Collection } from './collection';
+import _ from 'lodash';
+
+const DEFAULT_BASE_PATH = '/api/rest/v2/namespaces';
+
+interface CollectionCallback {
+  (err: Error | undefined, res: undefined): void;
+}
+
+export class Db {
+  httpClient: HTTPClient;
+  name: string;
+
+  /**
+   *
+   * @param astraClient
+   * @param name
+   */
+  constructor(httpClient: HTTPClient, name: string) {
+    if (!name) {
+      throw new Error('Db: name is required');
+    }
+    // use a clone of the underlying http client to support multiple db's from a single connection
+    this.httpClient = _.cloneDeep(httpClient);
+    this.httpClient.baseUrl = `${this.httpClient.baseUrl}${DEFAULT_BASE_PATH}/${name}`;
+    this.name = name;
+  }
+
+  /**
+   *
+   * @param collectionName
+   * @returns Collection
+   */
+  collection(collectionName: string): Collection {
+    if (!collectionName) {
+      throw new Error('Db: collection name is required');
+    }
+    return new Collection(this.httpClient, collectionName);
+  }
+
+  /**
+   *
+   * @param collectionName
+   * @param options
+   * @param cb
+   * @returns Promise
+   */
+  async createCollection(collectionName: string, options?: any, cb?: CollectionCallback) {
+    const res = await this.httpClient.post('/collections', {
+      name: collectionName
+    });
+    if (cb) {
+      cb(undefined, res.data);
+    }
+    return res.data;
+  }
+
+  /**
+   *
+   * @param collectionName
+   * @param cb
+   * @returns Promise
+   */
+  async dropCollection(collectionName: string, cb?: CollectionCallback) {
+    const res = await this.httpClient.delete(`/collections/${collectionName}`);
+    if (cb) {
+      cb(undefined, res.data);
+    }
+    return res.data;
+  }
+
+  // NOOPS and unimplemented
+
+  /**
+   *
+   * @param cb
+   * @returns Promise
+   */
+  async dropDatabase(cb?: CollectionCallback) {
+    if (cb) {
+      cb(undefined, undefined);
+    }
+  }
+}
