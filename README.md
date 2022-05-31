@@ -1,6 +1,6 @@
 # astra-mongoose
 
-[![Actions Status](https://github.com/kidrecursive/astra-mongoose/workflows/Tests%20-%AstraMongoose/badge.svg)](https://github.com/kidrecursive/astra-mongoose/actions)
+[![Actions Status](https://github.com/datastax-labs/astra-mongoose/workflows/Tests%20-%AstraMongoose/badge.svg)](https://github.com/datastax-labs/astra-mongoose/actions)
 
 `astra-mongoose` is a mongoose driver for [Astra DB](https://astra.datastax.com).
 
@@ -198,8 +198,6 @@ MongoDB compatible aggregation operations are not supported.
 ### Transaction Operations
 
 MongoDB compatible transaction operations are not supported.
-
-### Mongoose Model Operations
 
 ## NodeJS MongoDB Driver Overriding (experimental)
 
