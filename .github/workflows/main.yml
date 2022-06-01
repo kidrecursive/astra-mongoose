@@ -44,15 +44,12 @@ jobs:
           - 8081:8081
           - 8082:8082
           - 9042:9042
-    strategy:
-      matrix:
-        node-version: ['10', '12', '14', '16']
     steps:
       - uses: actions/checkout@v2
-      - name: Use NodeJS ${{ matrix.node-version }}
+      - name: Setting up the node version
         uses: actions/setup-node@v1
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 16
       - name: setup project
         run: |
           npm i
