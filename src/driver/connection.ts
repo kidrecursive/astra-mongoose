@@ -27,7 +27,7 @@ export class Connection extends MongooseConnection {
     return await db.dropCollection(name);
   }
 
-  async openUri(uri: string, options: any, callback: any) {
+  openUri(uri: string, options: any, callback: any) {
     if (typeof options === 'function') {
       callback = options;
       options = null;

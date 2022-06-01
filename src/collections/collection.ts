@@ -133,7 +133,7 @@ export class Collection {
     }, cb);
   }
 
-  async replaceOne(query: any, newDoc: any, options: any, cb: any) {
+  async replaceOne(query: any, newDoc: any, options?: any, cb?: any) {
     ({ options, cb } = setOptionsAndCb(options, cb));
     return executeOperation(async () => {
       const doc = await this.findOne(query, options);
@@ -148,7 +148,7 @@ export class Collection {
     }, cb);
   }
 
-  async deleteOne(query: any, options: any, cb: any) {
+  async deleteOne(query: any, options?: any, cb?: any) {
     ({ options, cb } = setOptionsAndCb(options, cb));
     return executeOperation(async () => {
       const doc = await this.findOne(query, options);
@@ -217,23 +217,27 @@ export class Collection {
   // deprecated and overloaded
 
   async remove(query: any, options: any, cb: any) {
-    return this.deleteMany(query, options, cb);
+    return await this.deleteMany(query, options, cb);
+  }
+
+  async insert(docs: any[], options?: any, cb?: any) {
+    return await this.insertMany(docs, options, cb);
   }
 
   async findOneAndDelete(query: any, options: any, cb: any) {
-    return this.deleteOne(query, options, cb);
+    return await this.deleteOne(query, options, cb);
   }
 
   async count(query: any, options: any, cb: any) {
-    return this.countDocuments(query, options, cb);
+    return await this.countDocuments(query, options, cb);
   }
 
   async update(query: any, update: any, options: any, cb: any) {
-    return this.updateMany(query, update, options, cb);
+    return await this.updateMany(query, update, options, cb);
   }
 
   async findOneAndUpdate(query: any, update: any, options: any, cb: any) {
-    return this.updateOne(query, update, options, cb);
+    return await this.updateOne(query, update, options, cb);
   }
 
   // NOOPS and unimplemented

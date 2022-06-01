@@ -96,6 +96,21 @@ describe('AstraMongoose - collections.collection', async () => {
       assert.strictEqual(doc.dang, 'yep');
       assert.strictEqual(doc.count, 2);
     });
+    it('should replaceOne document', async () => {
+      const { insertedId } = await collection.insertOne({ will: 'end' });
+      await sleep();
+      const res = await collection.replaceOne({ _id: insertedId }, { will: 'start' });
+      assert.strictEqual(res.modifiedCount, 1);
+      assert.strictEqual(res.matchedCount, 1);
+      assert.strictEqual(res.acknowledged, true);
+    });
+    it('should deleteOne document', async () => {
+      const { insertedId } = await collection.insertOne({ will: 'die' });
+      await sleep();
+      const res = await collection.deleteOne({ _id: insertedId });
+      assert.strictEqual(res.value.will, 'die');
+      assert.strictEqual(res.ok, true);
+    });
   });
 
   describe('Collection noops', () => {

@@ -15,7 +15,66 @@ export class Collection extends MongooseCollection {
     return this.conn.db.collection(this.name);
   }
 
-  async insertOne(doc: any, options: any, cb: any) {
+  find(query: any, options?: any, cb?: any) {
+    return this.collection.find(query, options, cb);
+  }
+
+  async findOne(query: any, options?: any, cb?: any) {
+    return await this.collection.findOne(query, options, cb);
+  }
+
+  async insertOne(doc: any, options?: any, cb?: any) {
     return await this.collection.insertOne(doc, options, cb);
   }
+  async insert(docs: any, options?: any, cb?: any) {
+    return await this.collection.insertMany(docs, options, cb);
+  }
+
+  async insertMany(docs: any, options?: any, cb?: any) {
+    return await this.collection.insertMany(docs, options, cb);
+  }
+
+  async findAndModify(query: any, update: any, options?: any, cb?: any) {
+    return await this.collection.updateMany(query, update, options, cb);
+  }
+
+  async findOneAndUpdate(query: any, update: any, options?: any, cb?: any) {
+    return await this.collection.findOneAndUpdate(query, update, options, cb);
+  }
+
+  async findOneAndDelete(query: any, options?: any, cb?: any) {
+    return await this.collection.findOneAndDelete(query, options, cb);
+  }
+
+  async findOneAndReplace(query: any, newDoc: any, options?: any, cb?: any) {
+    return await this.collection.updateMany(query, newDoc, options, cb);
+  }
 }
+
+//  Collection.prototype.ensureIndex = function() {
+//   throw new Error('Collection#ensureIndex unimplemented by driver');
+// };
+
+// Collection.prototype.createIndex = function() {
+//   throw new Error('Collection#createIndex unimplemented by driver');
+// };
+
+// Collection.prototype.save = function() {
+//   throw new Error('Collection#save unimplemented by driver');
+// };
+
+// Collection.prototype.update = function() {
+//   throw new Error('Collection#update unimplemented by driver');
+// };
+
+// Collection.prototype.getIndexes = function() {
+//   throw new Error('Collection#getIndexes unimplemented by driver');
+// };
+
+// Collection.prototype.mapReduce = function() {
+//   throw new Error('Collection#mapReduce unimplemented by driver');
+// };
+
+// Collection.prototype.watch = function() {
+//   throw new Error('Collection#watch unimplemented by driver');
+// };
