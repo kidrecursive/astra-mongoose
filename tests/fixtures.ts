@@ -11,11 +11,10 @@ export const astraUri = createAstraUri(
 
 export const getClient = async () => await Client.connect(astraUri);
 
-export const sampleUser = { firstName: 'Cliff', lastName: 'Wicklow' };
-
-export const createUser = () => ({
+export const createSampleUser = () => ({
   firstName: randFirstName(),
   lastName: randLastName()
 });
 
-export const getSampleUsers = (numUsers: number) => Array.from({ length: numUsers }, createUser);
+export const getSampleUsers = (numUsers: number) =>
+  Array.from({ length: numUsers }, createSampleUser);

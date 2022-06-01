@@ -2,12 +2,13 @@ import assert from 'assert';
 import { Db } from '@/src/collections/db';
 import { Collection } from '@/src/collections/collection';
 import { Client } from '@/src/collections/client';
-import { getClient, sampleUser } from '@/tests/fixtures';
+import { getClient, createSampleUser } from '@/tests/fixtures';
 
 describe('AstraMongoose - collections.collection', async () => {
   let astraClient: Client;
   let db: Db;
   let collection: Collection;
+  const sampleUser = createSampleUser();
   before(async () => {
     astraClient = await getClient();
     db = astraClient.db();
