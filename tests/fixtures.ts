@@ -18,3 +18,5 @@ export const createSampleUser = () => ({
 
 export const getSampleUsers = (numUsers: number) =>
   Array.from({ length: numUsers }, createSampleUser);
+
+export const sleep = async (ms = 100) => new Promise(resolve => setTimeout(resolve, ms));

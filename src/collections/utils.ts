@@ -15,29 +15,27 @@
 import _ from 'lodash';
 import url from 'url';
 import { ObjectId } from 'mongodb';
+import { logger } from '@/src/logger';
 
 interface ParsedUri {
   baseUrl: string;
   keyspaceName: string;
   applicationToken: string;
+  logLevel: string;
 }
 
 const types = ['String', 'Number', 'Boolean', 'ObjectId'];
 
 export const formatQuery = (query: any, options?: any) => {
-  // console.log(query);
   const modified = _.mapValues(query, (value: any) => {
-    // console.log(value, value.constructor.name);
     if (options?.collation) {
       throw new Error('Collations are not supported');
     }
-
     if (types.includes(value.constructor.name)) {
       return { $eq: value };
     }
     return value;
   });
-  // console.log(modified);
   return modified;
 };
 
@@ -51,6 +49,7 @@ export const parseUri = (uri: string): ParsedUri => {
   const baseUrl = `${parsedUrl.protocol}//${parsedUrl.host}`;
   const keyspaceName = parsedUrl.pathname?.replace('/', '');
   const applicationToken = parsedUrl.query?.applicationToken as string;
+  const logLevel = parsedUrl.query?.logLevel as string;
   if (!keyspaceName) {
     throw new Error('Invalid URI: keyspace is required');
   }
@@ -60,7 +59,8 @@ export const parseUri = (uri: string): ParsedUri => {
   return {
     baseUrl,
     keyspaceName,
-    applicationToken
+    applicationToken,
+    logLevel
   };
 };
 
@@ -76,16 +76,20 @@ export const createAstraUri = (
   databaseId: string,
   region: string,
   keyspace?: string,
-  applicationToken?: string
+  applicationToken?: string,
+  logLevel?: string
 ) => {
-  let uri = `https://${databaseId}-${region}.apps.astra.datastax.com`;
+  let uri = new url.URL(`https://${databaseId}-${region}.apps.astra.datastax.com`);
   if (keyspace) {
-    uri += `/${keyspace}`;
+    uri.pathname = `/${keyspace}`;
   }
   if (applicationToken) {
-    uri += `?applicationToken=${applicationToken}`;
+    uri.searchParams.append('applicationToken', applicationToken);
   }
-  return uri;
+  if (logLevel) {
+    uri.searchParams.append('logLevel', logLevel);
+  }
+  return uri.toString();
 };
 
 /**
@@ -126,8 +130,8 @@ export const executeOperation = async (operation: any, cb: any) => {
   let err = undefined;
   try {
     res = await operation();
-  } catch (e) {
-    console.error(e);
+  } catch (e: any) {
+    logger.error(e.message);
     err = e;
   }
   if (cb) {

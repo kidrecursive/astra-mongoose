@@ -11,3 +11,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+import winston, { format } from 'winston';
+
+const productionFormat = format.combine(format.timestamp(), format.json());
+const developmentFormat = format.combine(format.colorize(), format.simple());
+const consoleTransport = new winston.transports.Console();
+export const logger = winston.createLogger({
+  level: process.env.NODE_ENV === 'production' ? 'error' : 'info',
+  format: process.env.NODE_ENV === 'production' ? productionFormat : developmentFormat,
+  transports: [consoleTransport]
+});
+
+export const setLevel = (level: string) => {
+  consoleTransport.level = level;
+};

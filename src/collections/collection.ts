@@ -53,12 +53,14 @@ export class Collection {
     ({ options, cb } = setOptionsAndCb(options, cb));
     return executeOperation(async () => {
       addDefaultId(doc);
-      const res = await this.httpClient.put(`/${doc._id}`, doc, options);
-      if (res.documentId) {
-        res.insertedId = res.documentId;
-        delete res.documentId;
+      const { data } = await this.httpClient.put(`/${doc._id}`, doc, options);
+      data.acknowledged = false;
+      if (data.documentId) {
+        data.insertedId = data.documentId;
+        data.acknowledged = true;
+        delete data.documentId;
       }
-      return res;
+      return data;
     }, cb);
   }
 
@@ -66,66 +68,69 @@ export class Collection {
     ({ options, cb } = setOptionsAndCb(options, cb));
     return executeOperation(async () => {
       docs = docs.map((doc: any) => addDefaultId(doc));
-      return await this.httpClient.post('/batch', docs, { params: { 'id-path': '_id' } });
+      const { data } = await this.httpClient.post('/batch', docs, { params: { 'id-path': '_id' } });
+      data.acknowledged = false;
+      if (data.documentIds?.length) {
+        data.acknowledged = true;
+        data.insertedIds = {};
+        data.documentIds.forEach((docId: string, index: number) => {
+          data.insertedIds[index] = docId;
+        });
+        delete data.documentIds;
+      }
+      return data;
     }, cb);
   }
 
-  async updateMany(query: any, update: any, options: any, cb: any) {
+  private async doUpdate(doc: any, update: any) {
+    if (update.$set) {
+      update = _.merge(update, update.$set);
+      delete update.$set;
+    }
+    if (update.$inc) {
+      _.keys(update.$inc).forEach(incrementKey => {
+        if (doc[incrementKey]) {
+          update[incrementKey] = doc[incrementKey] + update.$inc[incrementKey];
+        } else {
+          update[incrementKey] = update.$inc[incrementKey];
+        }
+        delete update.$inc;
+      });
+    }
+    const { data } = await this.httpClient.patch(`/${doc._id}`, update);
+    data.acknowledged = true;
+    data.matchedCount = 1;
+    data.modifiedCount = 1;
+    delete data.documentId;
+    return data;
+  }
+
+  async updateOne(query: any, update: any, options?: any, cb?: any) {
     ({ options, cb } = setOptionsAndCb(options, cb));
     return executeOperation(async () => {
-      if (update.$set) {
-        update = {
-          ...update.$set
-        };
-        delete update.$set;
+      const doc = await this.findOne(query, options);
+      if (doc) {
+        return await this.doUpdate(doc, update);
       }
+      return { modifiedCount: 0, matchedCount: 0 };
+    }, cb);
+  }
+
+  async updateMany(query: any, update: any, options?: any, cb?: any) {
+    ({ options, cb } = setOptionsAndCb(options, cb));
+    return executeOperation(async () => {
       const cursor = this.find(query, options);
       const docs = await cursor.toArray();
       if (docs.length) {
-        return await Promise.all(
+        const res = await Promise.all(
           docs.map((doc: any) => {
-            return this.httpClient.patch(`${doc._id}`, update);
+            return this.doUpdate(doc, _.cloneDeep(update));
           })
         );
+        return { acknowledged: true, modifiedCount: res.length, matchedCount: res.length };
       }
+      return { modifiedCount: 0, matchedCount: 0 };
     }, cb);
-  }
-
-  async updateOne(query: any, update: any, options: any, cb: any) {
-    ({ options, cb } = setOptionsAndCb(options, cb));
-    return executeOperation(async () => {
-      if (update.$set) {
-        update = {
-          ...update.$set
-        };
-        delete update.$set;
-      }
-      const doc = await this.findOne(query, options);
-      if (doc) {
-        if (update.$inc) {
-          _.keys(update.$inc).forEach(incrementKey => {
-            if (doc[incrementKey]) {
-              update[incrementKey] += update.$inc[incrementKey];
-            } else {
-              update[incrementKey] = update.$inc[incrementKey];
-            }
-            delete update.$inc;
-          });
-        }
-        const res = await this.httpClient.patch(`${doc._id}`, update);
-        res.modifiedCount = 1;
-        if (options?.returnDocument === 'after') {
-          res.value = { ...doc, ...update };
-        } else {
-          res.value = { ...doc };
-        }
-        return res;
-      }
-    }, cb);
-  }
-
-  async findOneAndUpdate(query: any, update: any, options: any, cb: any) {
-    return this.updateOne(query, update, options, cb);
   }
 
   async replaceOne(query: any, newDoc: any, options: any, cb: any) {
@@ -133,23 +138,29 @@ export class Collection {
     return executeOperation(async () => {
       const doc = await this.findOne(query, options);
       if (doc) {
-        return await this.httpClient.replace(doc._id, newDoc);
+        const { data } = await this.httpClient.put(`/${doc._id}`, newDoc);
+        data.acknowledged = true;
+        data.matchedCount = 1;
+        data.modifiedCount = 1;
+        delete data.documentId;
+        return data;
       }
     }, cb);
   }
 
-  async findOneAndDelete(query: any, options: any, cb: any) {
+  async deleteOne(query: any, options: any, cb: any) {
     ({ options, cb } = setOptionsAndCb(options, cb));
     return executeOperation(async () => {
       const doc = await this.findOne(query, options);
       if (doc) {
         await this.httpClient.delete(`/${doc._id}`);
-        return { value: doc, deletedCount: 1 };
+        return { value: doc, ok: true };
       }
+      return { ok: false };
     }, cb);
   }
 
-  async remove(query: any, options: any, cb: any) {
+  async deleteMany(query: any, options: any, cb: any) {
     ({ options, cb } = setOptionsAndCb(options, cb));
     return executeOperation(async () => {
       const cursor = this.find(query, options);
@@ -158,8 +169,9 @@ export class Collection {
         const res = await Promise.all(
           docs.map((doc: any) => this.httpClient.delete(`/${doc._id}`))
         );
-        return { deletedCount: res.length };
+        return { acknowledged: true, deletedCount: res.length };
       }
+      return { acknowledged: true, deletedCount: 0 };
     }, cb);
   }
 
@@ -176,19 +188,19 @@ export class Collection {
     ({ options, cb } = setOptionsAndCb(options, cb));
     return executeOperation(async () => {
       const cursor = this.find(query, { ...options, limit: 1 });
-      return await cursor.toArray()[0];
+      const res = await cursor.toArray();
+      return res.length ? res[0] : undefined;
     }, cb);
   }
 
   async distinct(key: any, filter: any, options?: any, cb?: any) {
     ({ options, cb } = setOptionsAndCb(options, cb));
     return executeOperation(async () => {
-      const res = await this.httpClient.find(formatQuery(filter, options));
-      let list: any[] = [];
-      if (res.data) {
-        _.keys(res.data).forEach(resKey => {
-          list = list.concat(res.data[resKey][key]);
-        });
+      const cursor = this.find(filter, { ...options, limit: 1 });
+      const res = await cursor.toArray();
+      const list: string[] = [];
+      if (res.length) {
+        res.forEach((doc: any) => list.push(doc[key]));
       }
       return _.uniq(list);
     }, cb);
@@ -204,16 +216,12 @@ export class Collection {
 
   // deprecated and overloaded
 
-  async deleteMany(query: any, options: any, cb: any) {
-    return this.remove(query, options, cb);
+  async remove(query: any, options: any, cb: any) {
+    return this.deleteMany(query, options, cb);
   }
 
-  async findOneAndRemove(query: any, options: any, cb: any) {
-    return this.findOneAndDelete(query, options, cb);
-  }
-
-  async deleteOne(query: any, options: any, cb: any) {
-    return this.findOneAndDelete(query, options, cb);
+  async findOneAndDelete(query: any, options: any, cb: any) {
+    return this.deleteOne(query, options, cb);
   }
 
   async count(query: any, options: any, cb: any) {
@@ -222,6 +230,10 @@ export class Collection {
 
   async update(query: any, update: any, options: any, cb: any) {
     return this.updateMany(query, update, options, cb);
+  }
+
+  async findOneAndUpdate(query: any, update: any, options: any, cb: any) {
+    return this.updateOne(query, update, options, cb);
   }
 
   // NOOPS and unimplemented

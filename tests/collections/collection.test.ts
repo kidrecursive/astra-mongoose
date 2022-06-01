@@ -2,7 +2,8 @@ import assert from 'assert';
 import { Db } from '@/src/collections/db';
 import { Collection } from '@/src/collections/collection';
 import { Client } from '@/src/collections/client';
-import { getClient, createSampleUser } from '@/tests/fixtures';
+import { getClient, createSampleUser, getSampleUsers, sleep } from '@/tests/fixtures';
+import _ from 'lodash';
 
 describe('AstraMongoose - collections.collection', async () => {
   let astraClient: Client;
@@ -38,10 +39,13 @@ describe('AstraMongoose - collections.collection', async () => {
   describe('Collection operations', () => {
     it('should insertOne document', async () => {
       const res = await collection.insertOne(sampleUser);
+      assert.strictEqual(res.documentId, undefined);
+      assert.strictEqual(res.acknowledged, true);
+      assert.ok(res.insertedId);
       assert.ok(res);
     });
     it('should insertOne document with a callback', done => {
-      collection.insertOne(sampleUser, (err, res) => {
+      collection.insertOne(sampleUser, (err: any, res: any) => {
         assert.strictEqual(undefined, err);
         assert.ok(res);
         done();
@@ -49,11 +53,48 @@ describe('AstraMongoose - collections.collection', async () => {
     });
     it('should not insertOne document that is invalid', async () => {
       try {
-        const res = await collection.insertOne('invalid doc');
+        const res = await collection.insertOne({ 'dang.bro.yep': 'boss' });
         assert.ok(res);
       } catch (e) {
         assert.ok(e);
       }
+    });
+    it('should insertMany documents', async () => {
+      const res = await collection.insertMany(getSampleUsers(3));
+      assert.strictEqual(res.documentIds, undefined);
+      assert.strictEqual(res.acknowledged, true);
+      assert.strictEqual(_.keys(res.insertedIds).length, 3);
+    });
+    it('should updateOne document', async () => {
+      const { insertedId } = await collection.insertOne({ dang: 'boss' });
+      await sleep();
+      const res = await collection.updateOne(
+        { _id: insertedId },
+        { dang: 'yep', $set: { wew: 'son' }, $inc: { count: 1 } }
+      );
+      assert.strictEqual(res.modifiedCount, 1);
+      assert.strictEqual(res.matchedCount, 1);
+      assert.strictEqual(res.acknowledged, true);
+      await sleep();
+      const doc = await collection.findOne({ _id: insertedId });
+      assert.strictEqual(doc.dang, 'yep');
+      assert.strictEqual(doc.wew, 'son');
+      assert.strictEqual(doc.count, 1);
+    });
+    it('should updateMany documents', async () => {
+      const { insertedIds } = await collection.insertMany([
+        { many: true },
+        { many: true, count: 1 }
+      ]);
+      await sleep();
+      const res = await collection.updateMany({ many: true }, { dang: 'yep', $inc: { count: 1 } });
+      assert.strictEqual(res.modifiedCount, 2);
+      assert.strictEqual(res.matchedCount, 2);
+      assert.strictEqual(res.acknowledged, true);
+      await sleep();
+      const doc = await collection.findOne({ _id: insertedIds[1] });
+      assert.strictEqual(doc.dang, 'yep');
+      assert.strictEqual(doc.count, 2);
     });
   });
 

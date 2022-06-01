@@ -13,7 +13,8 @@
 // limitations under the License.
 
 import http from 'http';
-import axios, { AxiosRequestConfig } from 'axios';
+import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { logger, setLevel } from '@/src/logger';
 import _ from 'lodash';
 
 const REQUESTED_WITH = 'astra-mongoose 0.1.0';
@@ -30,8 +31,8 @@ const HTTP_METHODS = {
 };
 
 interface AstraClientOptions {
-  baseUrl: string;
   applicationToken: string;
+  baseUrl?: string;
   databaseId?: string;
   databaseRegion?: string;
   authHeaderName?: string;
@@ -42,6 +43,16 @@ interface RequestOptions {
   'page-size': string;
   where?: any;
   ttl?: string;
+}
+
+class AstraError extends Error {
+  message: string = '';
+  response?: AxiosResponse;
+
+  constructor(message: string, response?: AxiosResponse) {
+    super(message);
+    this.response = response;
+  }
 }
 
 const axiosAgent = axios.create({
@@ -57,6 +68,21 @@ const axiosAgent = axios.create({
   }),
   timeout: DEFAULT_TIMEOUT
 });
+
+const requestInterceptor = (config: AxiosRequestConfig) => {
+  const { method, url } = config;
+  logger.http(`--- ${method?.toUpperCase()} ${url}`);
+  return config;
+};
+
+const responseInterceptor = (response: AxiosResponse) => {
+  const { config, status } = response;
+  logger.http(`${status} ${config.method?.toUpperCase()} ${config.url}`);
+  return response;
+};
+
+axiosAgent.interceptors.request.use(requestInterceptor);
+axiosAgent.interceptors.response.use(responseInterceptor);
 
 export class HTTPClient {
   baseUrl: string;
@@ -82,6 +108,10 @@ export class HTTPClient {
 
     if (!options.applicationToken) {
       throw new Error('applicationToken required for initialization');
+    }
+
+    if (options.logLevel) {
+      setLevel(options.logLevel);
     }
 
     this.applicationToken = options.applicationToken;
@@ -111,10 +141,11 @@ export class HTTPClient {
         status: response.status,
         data: response.data
       };
-    } catch (e) {
-      throw new Error(
-        `\n${JSON.stringify(_.get(e, 'response.data'), null, 2)}\n\nStack Trace:\n${e.message}`
-      );
+    } catch (e: any) {
+      if (e.response?.data?.description) {
+        e.message = e.response?.data?.description;
+      }
+      throw e;
     }
   }
 

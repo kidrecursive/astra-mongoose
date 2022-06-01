@@ -6,7 +6,7 @@
       "request": "launch",
       "name": "TSMocha",
       "program": "${workspaceFolder}/node_modules/ts-mocha/bin/ts-mocha",
-      "args": ["--paths", "-p", "tsconfig.json", "tests/driver/index.test.ts"],
+      "args": ["--paths", "-p", "tsconfig.json", "tests/**/*.test.ts"],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "protocol": "inspector"

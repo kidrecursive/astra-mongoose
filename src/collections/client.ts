@@ -20,6 +20,7 @@ import _ from 'lodash';
 interface ClientOptions {
   applicationToken: string;
   keyspaceName?: string;
+  logLevel?: string;
 }
 
 interface ClientCallback {
@@ -44,7 +45,8 @@ export class Client {
     this.applicationToken = options.applicationToken;
     this.httpClient = new HTTPClient({
       baseUrl: this.baseURL,
-      applicationToken: options.applicationToken
+      applicationToken: options.applicationToken,
+      logLevel: options.logLevel
     });
   }
 
@@ -60,7 +62,8 @@ export class Client {
     const parsedUri = parseUri(uri);
     const client = new Client(parsedUri.baseUrl, {
       applicationToken: parsedUri.applicationToken,
-      keyspaceName: parsedUri.keyspaceName
+      keyspaceName: parsedUri.keyspaceName,
+      logLevel: parsedUri.logLevel
     });
     await client.connect();
     if (cb) {

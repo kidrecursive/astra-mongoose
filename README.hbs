@@ -98,14 +98,15 @@ These are operators that are available when forming a MongoDB compatible query o
 
 These are operators that are available when forming a MongoDB compatible update operation.
 
-| Operation    | Status      | Notes                                                              |
-| ------------ | ----------- | ------------------------------------------------------------------ |
-| $addFields   | supported   |                                                                    |
-| $set         | supported   |                                                                    |
-| $projection  | in progress | [Issue](https://github.com/datastax-labs/astra-mongoose/issues/10) |
-| $unset       | in progress | [Issue](https://github.com/datastax-labs/astra-mongoose/issues/10) |
-| $replaceRoot | supported   |                                                                    |
-| $replaceWith | supported   |                                                                    |
+| Operation    | Status        | Notes                                                              |
+| ------------ | ------------- | ------------------------------------------------------------------ |
+| $addFields   | supported     |                                                                    |
+| $set         | supported     |                                                                    |
+| $projection  | in progress   | [Issue](https://github.com/datastax-labs/astra-mongoose/issues/10) |
+| $unset       | in progress   | [Issue](https://github.com/datastax-labs/astra-mongoose/issues/10) |
+| $replaceRoot | supported     |                                                                    |
+| $replaceWith | supported     |                                                                    |
+| upsert       | not supported |                                                                    |
 
 ### Collection Operations
 
