@@ -14,6 +14,7 @@
 
 import { HTTPClient } from '@/src/client';
 import { Collection } from './collection';
+import { executeOperation } from './utils';
 import _ from 'lodash';
 
 const DEFAULT_BASE_PATH = '/api/rest/v2/namespaces';
@@ -61,13 +62,12 @@ export class Db {
    * @returns Promise
    */
   async createCollection(collectionName: string, options?: any, cb?: CollectionCallback) {
-    const res = await this.httpClient.post('/collections', {
-      name: collectionName
-    });
-    if (cb) {
-      cb(undefined, res.data);
-    }
-    return res.data;
+    return executeOperation(async () => {
+      const res = await this.httpClient.post('/collections', {
+        name: collectionName
+      });
+      return res.data;
+    }, cb);
   }
 
   /**
@@ -77,11 +77,10 @@ export class Db {
    * @returns Promise
    */
   async dropCollection(collectionName: string, cb?: CollectionCallback) {
-    const res = await this.httpClient.delete(`/collections/${collectionName}`);
-    if (cb) {
-      cb(undefined, res.data);
-    }
-    return res.data;
+    return executeOperation(async () => {
+      const res = await this.httpClient.delete(`/collections/${collectionName}`);
+      return res.data;
+    }, cb);
   }
 
   // NOOPS and unimplemented

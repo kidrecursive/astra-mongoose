@@ -79,8 +79,8 @@ export class Collection {
         };
         delete update.$set;
       }
-      const cursor = await this.find(query, options);
-      const docs = cursor.toArray();
+      const cursor = this.find(query, options);
+      const docs = await cursor.toArray();
       if (docs.length) {
         return await Promise.all(
           docs.map((doc: any) => {
@@ -152,8 +152,8 @@ export class Collection {
   async remove(query: any, options: any, cb: any) {
     ({ options, cb } = setOptionsAndCb(options, cb));
     return executeOperation(async () => {
-      const cursor = await this.find(query, options);
-      const docs = cursor.toArray();
+      const cursor = this.find(query, options);
+      const docs = await cursor.toArray();
       if (docs.length) {
         const res = await Promise.all(
           docs.map((doc: any) => this.httpClient.delete(`/${doc._id}`))
@@ -175,8 +175,8 @@ export class Collection {
   async findOne(query: any, options?: any, cb?: any) {
     ({ options, cb } = setOptionsAndCb(options, cb));
     return executeOperation(async () => {
-      const cursor = await this.find(query, { ...options, limit: 1 });
-      return cursor.toArray()[0];
+      const cursor = this.find(query, { ...options, limit: 1 });
+      return await cursor.toArray()[0];
     }, cb);
   }
 
@@ -197,9 +197,8 @@ export class Collection {
   async countDocuments(query: any, options?: any, cb?: any) {
     ({ options, cb } = setOptionsAndCb(options, cb));
     return executeOperation(async () => {
-      const cursor = await this.find(query, options);
-      const docs = cursor.toArray();
-      return docs.length;
+      const cursor = this.find(query, options);
+      return await cursor.count();
     }, cb);
   }
 

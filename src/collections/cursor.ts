@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { formatQuery } from './utils';
-import { Collection } from './collection';
 import _ from 'lodash';
+import { Collection } from './collection';
+import { formatQuery, setOptionsAndCb, executeOperation } from './utils';
 
 const DEFAULT_PAGE_SIZE = 20;
 
@@ -26,6 +26,10 @@ export class FindCursor {
   collection: Collection;
   query: any;
   options: any;
+  documents: Record<string, any>[] = [];
+  status: string = 'uninitialized';
+  nextPageState?: string;
+  limit: number;
 
   /**
    *
@@ -37,6 +41,36 @@ export class FindCursor {
     this.collection = collection;
     this.query = formatQuery(query, options);
     this.options = options;
+    this.limit = options?.limit || Infinity;
+    this.status = 'initialized';
+  }
+
+  /**
+   *
+   * @returns
+   */
+  private async getAll() {
+    if (this.status === 'executed') {
+      return;
+    }
+    this.status = 'executing';
+    const oneRequest = this.limit && this.limit < DEFAULT_PAGE_SIZE;
+    do {
+      const reqParams: any = {
+        where: this.query,
+        'page-size': oneRequest ? this.limit : DEFAULT_PAGE_SIZE
+      };
+      if (this.nextPageState) {
+        reqParams['page-state'] = this.nextPageState;
+      }
+      const res = await this.collection.httpClient.get('/', {
+        params: reqParams
+      });
+      this.nextPageState = res.pageState;
+      const resAsArray = _.keys(res.data).map(i => res.data[i]);
+      this.documents = this.documents.concat(resAsArray);
+    } while (!oneRequest && this.documents.length < this.limit && this.nextPageState);
+    this.status = 'executed';
   }
 
   /**
@@ -45,14 +79,39 @@ export class FindCursor {
    * @returns Promise
    */
   async toArray(cb?: ResultCallback): Promise<Array<any>> {
-    const res = await this.collection.httpClient.get('/', {
-      params: { where: this.query, 'page-size': DEFAULT_PAGE_SIZE }
-    });
-    const resAsArray = _.keys(res.data).map(i => res.data[i]);
-    if (cb) {
-      cb(undefined, resAsArray);
-    }
-    return resAsArray;
+    return executeOperation(async () => {
+      await this.getAll();
+      return this.documents;
+    }, cb);
+  }
+
+  /**
+   *
+   * @param iterator
+   * @param cb
+   */
+  async forEach(iterator: any, cb?: any) {
+    return executeOperation(async () => {
+      await this.getAll();
+      for (const doc of this.documents) {
+        await iterator(doc);
+      }
+      return this.documents;
+    }, cb);
+  }
+
+  /**
+   *
+   * @param options
+   * @param cb
+   * @returns Promise<number>
+   */
+  async count(options?: any, cb?: any) {
+    ({ options, cb } = setOptionsAndCb(options, cb));
+    return executeOperation(async () => {
+      await this.getAll();
+      return this.documents.length;
+    }, cb);
   }
 
   // NOOPS and unimplemented
