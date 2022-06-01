@@ -91,7 +91,7 @@ export const createAstraUri = (
 /**
  *
  * @param doc
- * @returns
+ * @returns Object
  */
 export const addDefaultId = (doc: any) => {
   if (!doc._id) {
@@ -104,7 +104,7 @@ export const addDefaultId = (doc: any) => {
  *
  * @param options
  * @param cb
- * @returns
+ * @returns Object
  */
 export const setOptionsAndCb = (options: any, cb: any) => {
   if (typeof options === 'function') {

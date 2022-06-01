@@ -47,7 +47,7 @@ export class FindCursor {
 
   /**
    *
-   * @returns
+   * @returns void
    */
   private async getAll() {
     if (this.status === 'executed' || this.status === 'executing') {

@@ -1,6 +1,6 @@
 # astra-mongoose
 
-[![Actions Status](https://github.com/datastax-labs/astra-mongoose/workflows/Tests%20-%AstraMongoose/badge.svg)](https://github.com/datastax-labs/astra-mongoose/actions)
+![tests workflow](https://github.com/kidrecursive/astra-mongoose/actions/workflows/main.yml/badge.svg)
 
 `astra-mongoose` is a mongoose driver for [Astra DB](https://astra.datastax.com).
 
@@ -294,6 +294,13 @@ await mongoose.connect(astraUri);
 <dd><p>Parse an Astra connection URI</p></dd>
 <dt><a href="#parseUri">parseUri</a> ⇒</dt>
 <dd><p>Create a production Astra connection URI</p></dd>
+<dt><a href="#createAstraUri">createAstraUri</a> ⇒</dt>
+<dd></dd>
+<dt><a href="#addDefaultId">addDefaultId</a> ⇒</dt>
+<dd></dd>
+<dt><a href="#setOptionsAndCb">setOptionsAndCb</a> ⇒</dt>
+<dd><p>executeOperation handles running functions that have a callback parameter and that also can
+return a promise.</p></dd>
 </dl>
 
 <a name="Client"></a>
@@ -388,6 +395,7 @@ await mongoose.connect(astraUri);
     * [new Collection(httpClient, name)](#new_Collection_new)
     * [.insertOne(mongooseDoc, options, cb)](#Collection+insertOne) ⇒
     * [.aggregate(pipeline, options)](#Collection+aggregate)
+    * [.createIndex(index, options, cb)](#Collection+createIndex) ⇒
 
 <a name="new_Collection_new"></a>
 
@@ -420,6 +428,18 @@ await mongoose.connect(astraUri);
 | pipeline | 
 | options | 
 
+<a name="Collection+createIndex"></a>
+
+### collection.createIndex(index, options, cb) ⇒
+**Kind**: instance method of [<code>Collection</code>](#Collection)  
+**Returns**: <p>any</p>  
+
+| Param |
+| --- |
+| index | 
+| options | 
+| cb | 
+
 <a name="FindCursor"></a>
 
 ## FindCursor
@@ -427,7 +447,10 @@ await mongoose.connect(astraUri);
 
 * [FindCursor](#FindCursor)
     * [new FindCursor(collection, query, options)](#new_FindCursor_new)
+    * [.getAll()](#FindCursor+getAll) ⇒
     * [.toArray(cb)](#FindCursor+toArray) ⇒
+    * [.forEach(iterator, cb)](#FindCursor+forEach)
+    * [.count(options, cb)](#FindCursor+count) ⇒
     * [.stream(options)](#FindCursor+stream)
 
 <a name="new_FindCursor_new"></a>
@@ -440,6 +463,11 @@ await mongoose.connect(astraUri);
 | query | 
 | options | 
 
+<a name="FindCursor+getAll"></a>
+
+### findCursor.getAll() ⇒
+**Kind**: instance method of [<code>FindCursor</code>](#FindCursor)  
+**Returns**: <p>void</p>  
 <a name="FindCursor+toArray"></a>
 
 ### findCursor.toArray(cb) ⇒
@@ -448,6 +476,27 @@ await mongoose.connect(astraUri);
 
 | Param |
 | --- |
+| cb | 
+
+<a name="FindCursor+forEach"></a>
+
+### findCursor.forEach(iterator, cb)
+**Kind**: instance method of [<code>FindCursor</code>](#FindCursor)  
+
+| Param |
+| --- |
+| iterator | 
+| cb | 
+
+<a name="FindCursor+count"></a>
+
+### findCursor.count(options, cb) ⇒
+**Kind**: instance method of [<code>FindCursor</code>](#FindCursor)  
+**Returns**: <p>Promise<number></p>  
+
+| Param |
+| --- |
+| options | 
 | cb | 
 
 <a name="FindCursor+stream"></a>
@@ -549,4 +598,39 @@ await mongoose.connect(astraUri);
 | region | <p>the region of the Astra database</p> |
 | keyspace | <p>the keyspace to connect to</p> |
 | applicationToken | <p>an Astra application token</p> |
+
+<a name="createAstraUri"></a>
+
+## createAstraUri ⇒
+**Kind**: global variable  
+**Returns**: <p>Object</p>  
+
+| Param |
+| --- |
+| doc | 
+
+<a name="addDefaultId"></a>
+
+## addDefaultId ⇒
+**Kind**: global variable  
+**Returns**: <p>Object</p>  
+
+| Param |
+| --- |
+| options | 
+| cb | 
+
+<a name="setOptionsAndCb"></a>
+
+## setOptionsAndCb ⇒
+<p>executeOperation handles running functions that have a callback parameter and that also can
+return a promise.</p>
+
+**Kind**: global variable  
+**Returns**: <p>Promise</p>  
+
+| Param | Description |
+| --- | --- |
+| operation | <p>a function that takes no parameters and returns a response</p> |
+| cb | <p>a node callback function</p> |
 
