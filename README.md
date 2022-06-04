@@ -21,16 +21,16 @@ npm i -s astra-mongoose
 
 ```javascript
 import mongoose from 'mongoose';
-import { driver, createAstraUri } from 'astra-mongoose';
+import { driver, collections } from 'astra-mongoose';
 
 // override the default mongodb native driver
-mongoose.driver.set(astraMongooseDriver);
-mongoose.Connection = astraMongooseDriver.getConnection();
-mongoose.Collection = astraMongooseDriver.Collection;
+mongoose.driver.set(driver);
+mongoose.Connection = driver.getConnection();
+mongoose.Collection = driver.Collection;
 mongoose.connections = [new mongoose.Connection(mongoose)];
 
 // create an Astra DB URI
-const astraUri = createAstraUri(
+const astraUri = collections.createAstraUri(
   process.env.ASTRA_DB_ID,
   process.env.ASTRA_DB_REGION,
   process.env.ASTRA_DB_KEYSPACE,

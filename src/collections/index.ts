@@ -18,3 +18,5 @@ export { Binary, Decimal128, ObjectId, ReadPreference } from 'mongodb';
 
 // alias for MongoClient shimming
 export { Client as MongoClient } from './client';
+
+export { createAstraUri } from './utils';

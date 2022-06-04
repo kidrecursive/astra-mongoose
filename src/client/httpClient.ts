@@ -98,9 +98,10 @@ export class HTTPClient {
 
     // set the baseURL to Astra, if the user provides a Stargate URL, use that instead.
     // databaseId and databaseRegion are required if no other URL is provided.
-    if (options.databaseId && options.databaseRegion) {
+    /*if (options.databaseId && options.databaseRegion) {
       this.baseUrl = `https://${options.astraDatabaseId}-${options.astraDatabaseRegion}.apps.astra.datastax.com`;
-    } else if (options.baseUrl) {
+    } else */
+    if (options.baseUrl) {
       this.baseUrl = options.baseUrl;
     } else {
       throw new Error('baseUrl required for initialization');
