@@ -51,6 +51,7 @@
     "jsdoc-to-markdown": "^7.1.1",
     "nyc": "^15.1.0",
     "ts-mocha": "^10.0.0",
+    "ts-node": "^10.8.1",
     "tsconfig-paths": "^4.0.0",
     "typescript": "^4.7.2"
   },
@@ -58,7 +59,7 @@
     "axios": "^0.27.2",
     "lodash": "^4.17.21",
     "mongodb": "^4.6.0",
-    "mongoose": "^6.3.4",
+    "mongoose": "^6.4.0",
     "winston": "^3.7.2"
   }
 }

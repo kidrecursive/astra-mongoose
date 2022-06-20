@@ -24,10 +24,7 @@ import mongoose from 'mongoose';
 import { driver, collections } from 'astra-mongoose';
 
 // override the default mongodb native driver
-mongoose.driver.set(driver);
-mongoose.Connection = driver.getConnection();
-mongoose.Collection = driver.Collection;
-mongoose.connections = [new mongoose.Connection(mongoose)];
+mongoose.setDriver(driver);
 
 // create an Astra DB URI
 const astraUri = collections.createAstraUri(
