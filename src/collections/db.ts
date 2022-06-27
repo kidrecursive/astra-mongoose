@@ -63,10 +63,15 @@ export class Db {
    */
   async createCollection(collectionName: string, options?: any, cb?: CollectionCallback) {
     return executeOperation(async () => {
-      const res = await this.httpClient.post('/collections', {
+      const data = await this.httpClient.post('/collections', {
         name: collectionName
+      }).then(res => res.data).catch(err => {
+        if (err?.response?.status === 409) {
+          return null; // Collection already exists
+        }
+        throw err;
       });
-      return res.data;
+      return data;
     }, cb);
   }
 

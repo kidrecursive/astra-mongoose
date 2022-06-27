@@ -62,6 +62,17 @@ describe('AstraMongoose - collections.Db', async () => {
       // run drop collection async to save time
       db.dropCollection(`test_db_collection_${suffix}`);
     });
+    it('does not throw if Collection already exists', async () => {
+      const db = new Db(astraClient.httpClient, process.env.ASTRA_DB_KEYSPACE || '');
+      const suffix = randAlphaNumeric({ length: 4 }).join('');
+      const res = await db.createCollection(`test_db_collection_${suffix}`);
+      assert.strictEqual(res, '');
+
+      const res2 = await db.createCollection(`test_db_collection_${suffix}`);
+      assert.strictEqual(res2, null);
+      // run drop collection async to save time
+      db.dropCollection(`test_db_collection_${suffix}`);
+    });
     it('should create a Collection with a callback', done => {
       const db = new Db(astraClient.httpClient, process.env.ASTRA_DB_KEYSPACE || '');
       const suffix = randAlphaNumeric({ length: 4 }).join('');
