@@ -17,13 +17,7 @@ import { astraUri } from '@/tests/fixtures';
 import * as astraMongooseDriver from '@/src/driver';
 
 // @ts-ignore
-mongoose.driver.set(astraMongooseDriver);
-// @ts-ignore
-mongoose.Connection = astraMongooseDriver.getConnection();
-// @ts-ignore
-mongoose.Collection = astraMongooseDriver.Collection;
-// @ts-ignore
-mongoose.connections = [new mongoose.Connection(mongoose)];
+mongoose.setDriver(astraMongooseDriver);
 
 const cartSchema = new mongoose.Schema({
   name: String,
