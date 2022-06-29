@@ -72,5 +72,17 @@ export class Connection extends MongooseConnection {
     });
   }
 
+  /**
+   *
+   * @param cb
+   * @returns Client
+   */
+   doClose(force?: boolean, cb?: (err: Error | undefined) => void) {
+    if (cb) {
+      cb(undefined);
+    }
+    return this;
+  }
+
   // NOOPS and unimplemented
 }
