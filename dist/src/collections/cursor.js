@@ -1,0 +1,114 @@
+"use strict";
+// Copyright DataStax, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.FindCursor = void 0;
+const lodash_1 = __importDefault(require("lodash"));
+const utils_1 = require("./utils");
+const DEFAULT_PAGE_SIZE = 20;
+class FindCursor {
+    /**
+     *
+     * @param collection
+     * @param query
+     * @param options
+     */
+    constructor(collection, query, options) {
+        this.documents = [];
+        this.status = 'uninitialized';
+        this.collection = collection;
+        this.query = (0, utils_1.formatQuery)(query, options);
+        this.options = options;
+        this.limit = options?.limit || Infinity;
+        this.status = 'initialized';
+    }
+    /**
+     *
+     * @returns void
+     */
+    async getAll() {
+        if (this.status === 'executed' || this.status === 'executing') {
+            return;
+        }
+        this.status = 'executing';
+        const oneRequest = this.limit && this.limit < DEFAULT_PAGE_SIZE;
+        do {
+            const reqParams = {
+                where: this.query,
+                'page-size': oneRequest ? this.limit : DEFAULT_PAGE_SIZE
+            };
+            if (this.nextPageState) {
+                reqParams['page-state'] = this.nextPageState;
+            }
+            const res = await this.collection.httpClient.get('/', {
+                params: reqParams
+            });
+            this.nextPageState = res.pageState;
+            const resAsArray = lodash_1.default.keys(res.data).map(i => res.data[i]);
+            this.documents = this.documents.concat(resAsArray);
+        } while (!oneRequest && this.documents.length < this.limit && this.nextPageState);
+        this.status = 'executed';
+    }
+    /**
+     *
+     * @param cb
+     * @returns Promise
+     */
+    async toArray(cb) {
+        return (0, utils_1.executeOperation)(async () => {
+            await this.getAll();
+            return this.documents;
+        }, cb);
+    }
+    /**
+     *
+     * @param iterator
+     * @param cb
+     */
+    async forEach(iterator, cb) {
+        return (0, utils_1.executeOperation)(async () => {
+            await this.getAll();
+            for (const doc of this.documents) {
+                await iterator(doc);
+            }
+            return this.documents;
+        }, cb);
+    }
+    /**
+     *
+     * @param options
+     * @param cb
+     * @returns Promise<number>
+     */
+    async count(options, cb) {
+        ({ options, cb } = (0, utils_1.setOptionsAndCb)(options, cb));
+        return (0, utils_1.executeOperation)(async () => {
+            await this.getAll();
+            return this.documents.length;
+        }, cb);
+    }
+    // NOOPS and unimplemented
+    /**
+     *
+     * @param options
+     */
+    stream(options) {
+        throw new Error('Streaming cursors are not supported');
+    }
+}
+exports.FindCursor = FindCursor;
+//# sourceMappingURL=cursor.js.map
