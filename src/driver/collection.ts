@@ -63,6 +63,19 @@ export class Collection extends MongooseCollection {
   async findOneAndReplace(query: any, newDoc: any, options?: any, cb?: any) {
     return await this.collection.updateMany(query, newDoc, options, cb);
   }
+
+  async deleteMany(query: any, options?: any, cb?: any) {
+    return await this.collection.deleteMany(query, options, cb);
+  }
+
+  async remove(query: any, options: any, cb: any) {
+    return await this.collection.remove(query, options, cb);
+  }
+
+  // No-ops
+  async dropIndexes(cb?: any) {
+    return await this.collection.dropIndexes(cb);
+  }
 }
 
 //  Collection.prototype.ensureIndex = function() {

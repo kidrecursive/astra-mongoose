@@ -41,7 +41,7 @@ export class Client {
    */
   constructor(uri: string, options: ClientOptions) {
     this.baseURL = uri;
-    this.keyspaceName = options?.keyspaceName;
+    this.keyspaceName = options.keyspaceName;
     this.applicationToken = options.applicationToken;
     this.httpClient = new HTTPClient({
       baseUrl: this.baseURL,

@@ -264,4 +264,17 @@ export class Collection {
     }
     return index;
   }
+
+  /**
+   *
+   * @param index
+   * @param options
+   * @param cb
+   * @returns any
+   */
+   async dropIndexes(cb?: any) {
+    if (cb) {
+      return cb(null);
+    }
+  }
 }
