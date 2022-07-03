@@ -141,9 +141,9 @@ class Collection {
             const doc = await this.findOne(query, options);
             if (doc) {
                 await this.httpClient.delete(`/${doc._id}`);
-                return { value: doc, ok: true };
+                return { acknowledged: true, deletedCount: 1 };
             }
-            return { ok: false };
+            return { acknowledged: true, deletedCount: 0 };
         }, cb);
     }
     async deleteMany(query, options, cb) {
@@ -152,6 +152,9 @@ class Collection {
             const cursor = this.find(query, options);
             const docs = await cursor.toArray();
             if (docs.length) {
+                if (docs.find((doc) => doc._id === undefined)) {
+                    throw new Error('Cannot delete document without an _id');
+                }
                 const res = await Promise.all(docs.map((doc) => this.httpClient.delete(`/${doc._id}`)));
                 return { acknowledged: true, deletedCount: res.length };
             }
@@ -210,7 +213,16 @@ class Collection {
         return await this.updateMany(query, update, options, cb);
     }
     async findOneAndUpdate(query, update, options, cb) {
-        return await this.updateOne(query, update, options, cb);
+        return (0, utils_1.executeOperation)(async () => {
+            let doc = await this.findOne(query, options);
+            if (doc) {
+                await this.doUpdate(doc, update);
+            }
+            if (options?.new === true || options?.returnOriginal === false || options?.returnDocument === 'after') {
+                doc = await this.findOne({ _id: doc._id }, options);
+            }
+            return { value: doc, ok: 1 };
+        }, cb);
     }
     // NOOPS and unimplemented
     /**

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import _ from 'lodash';
+import { DeleteResult, ModifyResult } from 'mongodb';
 import { FindCursor } from './cursor';
 import { HTTPClient } from '@/src/client';
 import { formatQuery, addDefaultId, setOptionsAndCb, executeOperation } from './utils';
@@ -148,15 +149,15 @@ export class Collection {
     }, cb);
   }
 
-  async deleteOne(query: any, options?: any, cb?: any) {
+  async deleteOne(query: any, options?: any, cb?: any): Promise<DeleteResult> {
     ({ options, cb } = setOptionsAndCb(options, cb));
-    return executeOperation(async () => {
+    return executeOperation(async (): Promise<DeleteResult> => {
       const doc = await this.findOne(query, options);
       if (doc) {
         await this.httpClient.delete(`/${doc._id}`);
-        return { value: doc, ok: true };
+        return { acknowledged: true, deletedCount: 1 };
       }
-      return { ok: false };
+      return { acknowledged: true, deletedCount: 0 };
     }, cb);
   }
 
@@ -166,6 +167,9 @@ export class Collection {
       const cursor = this.find(query, options);
       const docs = await cursor.toArray();
       if (docs.length) {
+        if (docs.find((doc: any) => doc._id === undefined)) {
+          throw new Error('Cannot delete document without an _id');
+        }
         const res = await Promise.all(
           docs.map((doc: any) => this.httpClient.delete(`/${doc._id}`))
         );
@@ -237,7 +241,16 @@ export class Collection {
   }
 
   async findOneAndUpdate(query: any, update: any, options: any, cb: any) {
-    return await this.updateOne(query, update, options, cb);
+    return executeOperation(async (): Promise<ModifyResult> => {
+      let doc = await this.findOne(query, options);
+      if (doc) {
+        await this.doUpdate(doc, update);
+      }
+      if (options?.new === true || options?.returnOriginal === false || options?.returnDocument === 'after') {
+        doc = await this.findOne({ _id: doc._id }, options);
+      }
+      return { value: doc, ok: 1 };
+    }, cb);
   }
 
   // NOOPS and unimplemented
