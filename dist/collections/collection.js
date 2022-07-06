@@ -186,7 +186,6 @@ class Collection {
             if (res.length) {
                 res.forEach((doc) => list.push(doc[key]));
             }
-            console.log('XY', list, res);
             return lodash_1.default.uniq(list);
         }, cb);
     }
