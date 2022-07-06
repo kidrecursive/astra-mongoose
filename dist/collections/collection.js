@@ -180,12 +180,13 @@ class Collection {
     async distinct(key, filter, options, cb) {
         ({ options, cb } = (0, utils_1.setOptionsAndCb)(options, cb));
         return (0, utils_1.executeOperation)(async () => {
-            const cursor = this.find(filter, { ...options, limit: 1 });
+            const cursor = this.find(filter, { ...options });
             const res = await cursor.toArray();
             const list = [];
             if (res.length) {
                 res.forEach((doc) => list.push(doc[key]));
             }
+            console.log('XY', list, res);
             return lodash_1.default.uniq(list);
         }, cb);
     }

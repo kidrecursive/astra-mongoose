@@ -200,7 +200,7 @@ export class Collection {
   async distinct(key: any, filter: any, options?: any, cb?: any) {
     ({ options, cb } = setOptionsAndCb(options, cb));
     return executeOperation(async () => {
-      const cursor = this.find(filter, { ...options, limit: 1 });
+      const cursor = this.find(filter, { ...options });
       const res = await cursor.toArray();
       const list: string[] = [];
       if (res.length) {
