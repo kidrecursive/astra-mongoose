@@ -20,6 +20,7 @@ exports.Collection = void 0;
 const lodash_1 = __importDefault(require("lodash"));
 const cursor_1 = require("./cursor");
 const utils_1 = require("./utils");
+const util_1 = require("util");
 class Collection {
     /**
      *
@@ -126,7 +127,7 @@ class Collection {
         return (0, utils_1.executeOperation)(async () => {
             const doc = await this.findOne(query, options);
             if (doc) {
-                const { data } = await this.httpClient.put(`/${doc._id}`, newDoc);
+                const { data } = await this.httpClient.put(`/${doc._id}`, { ...newDoc, _id: doc._id });
                 data.acknowledged = true;
                 data.matchedCount = 1;
                 data.modifiedCount = 1;
@@ -152,8 +153,10 @@ class Collection {
             const cursor = this.find(query, options);
             const docs = await cursor.toArray();
             if (docs.length) {
-                if (docs.find((doc) => doc._id === undefined)) {
-                    throw new Error('Cannot delete document without an _id');
+                let withoutId = null;
+                if (withoutId = docs.find((doc) => doc._id === undefined)) {
+                    console.log(docs);
+                    throw new Error('Cannot delete document without an _id, deleting: ' + (0, util_1.inspect)(withoutId));
                 }
                 const res = await Promise.all(docs.map((doc) => this.httpClient.delete(`/${doc._id}`)));
                 return { acknowledged: true, deletedCount: res.length };

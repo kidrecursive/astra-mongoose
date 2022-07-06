@@ -17,6 +17,7 @@ import { DeleteResult, ModifyResult } from 'mongodb';
 import { FindCursor } from './cursor';
 import { HTTPClient } from '@/src/client';
 import { formatQuery, addDefaultId, setOptionsAndCb, executeOperation } from './utils';
+import { inspect } from 'util';
 
 interface DocumentCallback {
   (err: Error | undefined, res: any): void;
@@ -139,7 +140,7 @@ export class Collection {
     return executeOperation(async () => {
       const doc = await this.findOne(query, options);
       if (doc) {
-        const { data } = await this.httpClient.put(`/${doc._id}`, newDoc);
+        const { data } = await this.httpClient.put(`/${doc._id}`, { ...newDoc, _id: doc._id });
         data.acknowledged = true;
         data.matchedCount = 1;
         data.modifiedCount = 1;
@@ -167,8 +168,9 @@ export class Collection {
       const cursor = this.find(query, options);
       const docs = await cursor.toArray();
       if (docs.length) {
-        if (docs.find((doc: any) => doc._id === undefined)) {
-          throw new Error('Cannot delete document without an _id');
+        let withoutId = null;
+        if (withoutId = docs.find((doc: any) => doc._id === undefined)) {
+          throw new Error('Cannot delete document without an _id, deleting: ' + inspect(withoutId));
         }
         const res = await Promise.all(
           docs.map((doc: any) => this.httpClient.delete(`/${doc._id}`))
