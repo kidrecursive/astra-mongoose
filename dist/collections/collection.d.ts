@@ -34,7 +34,7 @@ export declare class Collection {
     countDocuments(query: any, options?: any, cb?: any): Promise<any>;
     remove(query: any, options: any, cb: any): Promise<any>;
     insert(docs: any[], options?: any, cb?: any): Promise<any>;
-    findOneAndDelete(query: any, options: any, cb: any): Promise<DeleteResult>;
+    findOneAndDelete(query: any, options: any, cb: any): Promise<any>;
     count(query: any, options: any, cb: any): Promise<any>;
     update(query: any, update: any, options: any, cb: any): Promise<any>;
     findOneAndUpdate(query: any, update: any, options: any, cb: any): Promise<any>;

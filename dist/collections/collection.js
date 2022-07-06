@@ -204,7 +204,16 @@ class Collection {
         return await this.insertMany(docs, options, cb);
     }
     async findOneAndDelete(query, options, cb) {
-        return await this.deleteOne(query, options, cb);
+        return (0, utils_1.executeOperation)(async () => {
+            let doc = await this.findOne(query, options);
+            if (doc) {
+                await this.httpClient.delete(`/${doc._id}`);
+            }
+            if (options?.new === true || options?.returnOriginal === false || options?.returnDocument === 'after') {
+                doc = null;
+            }
+            return { value: doc, ok: 1 };
+        }, cb);
     }
     async count(query, options, cb) {
         return await this.countDocuments(query, options, cb);

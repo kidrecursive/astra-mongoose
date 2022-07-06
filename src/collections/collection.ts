@@ -229,7 +229,16 @@ export class Collection {
   }
 
   async findOneAndDelete(query: any, options: any, cb: any) {
-    return await this.deleteOne(query, options, cb);
+    return executeOperation(async (): Promise<ModifyResult> => {
+      let doc = await this.findOne(query, options);
+      if (doc) {
+        await this.httpClient.delete(`/${doc._id}`);
+      }
+      if (options?.new === true || options?.returnOriginal === false || options?.returnDocument === 'after') {
+        doc = null;
+      }
+      return { value: doc, ok: 1 };
+    }, cb);
   }
 
   async count(query: any, options: any, cb: any) {
