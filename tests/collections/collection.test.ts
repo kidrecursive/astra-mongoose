@@ -146,12 +146,27 @@ describe('AstraMongoose - collections.collection', async () => {
       assert.strictEqual(res.matchedCount, 1);
       assert.strictEqual(res.acknowledged, true);
     });
+    it('should replaceOne document with upsert', async () => {
+      const res = await collection.replaceOne(
+        { name: 'test' },
+        { prop: 'test prop' },
+        { upsert: true }
+      );
+      assert.strictEqual(res.modifiedCount, 0);
+      assert.strictEqual(res.matchedCount, 0);
+      assert.strictEqual(res.acknowledged, true);
+      assert.strictEqual(res.upsertedCount, 1);
+
+      const doc = await collection.findOne({ _id: res.upsertedId });
+      assert.ok(doc);
+      assert.strictEqual(doc.name, 'test');
+      assert.strictEqual(doc.prop, 'test prop');
+    });
     it('should deleteOne document', async () => {
       const { insertedId } = await collection.insertOne({ will: 'die' });
       await sleep();
       const res = await collection.deleteOne({ _id: insertedId });
-      assert.strictEqual(res.value.will, 'die');
-      assert.strictEqual(res.ok, true);
+      assert.strictEqual(res.deletedCount, 1);
     });
     it('should findOneAndUpdate', async () => {
       const { insertedId: _id } = await collection.insertOne({ name: 'before' });

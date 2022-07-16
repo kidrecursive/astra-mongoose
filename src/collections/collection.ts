@@ -183,7 +183,7 @@ export class Collection {
 
   async replaceOne(query: any, newDoc: any, options?: any, cb?: any) {
     ({ options, cb } = setOptionsAndCb(options, cb));
-    return executeOperation(async () => {
+    return executeOperation(async (): Promise<AstraUpdateResult> => {
       const doc = await this.findOne(query, options);
       if (doc) {
         const { data } = await this.httpClient.put(`/${doc._id}`, { ...newDoc, _id: doc._id });
@@ -192,7 +192,26 @@ export class Collection {
         data.modifiedCount = 1;
         delete data.documentId;
         return data;
+      } else if (options?.upsert) {
+        const doc = this._upsertDoc(query, newDoc);
+        await this.insertOne(doc);
+
+        return {
+          acknowledged: true,
+          matchedCount: 0,
+          modifiedCount: 0,
+          upsertedCount: 1,
+          upsertedId: doc._id
+        };
       }
+
+      return {
+        acknowledged: true,
+        matchedCount: 0,
+        modifiedCount: 0,
+        upsertedCount: 0,
+        upsertedId: null
+      };
     }, cb);
   }
 
