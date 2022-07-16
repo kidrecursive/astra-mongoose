@@ -95,6 +95,20 @@ describe('AstraMongoose - collections.collection', async () => {
       assert.strictEqual(doc.wew, 'son');
       assert.strictEqual(doc.count, 1);
     });
+    it('should updateOne with upsert', async () => {
+      const res = await collection.updateOne(
+        { name: 'test name' },
+        { $setOnInsert: { prop: 'test prop' } },
+        { upsert: true }
+      );
+      assert.ok(res.acknowledged);
+      assert.equal(res.upsertedCount, 1);
+      assert.ok(res.upsertedId);
+      await sleep();
+      const doc = await collection.findOne({ name: 'test name' });
+      assert.strictEqual(doc.name, 'test name');
+      assert.strictEqual(doc.prop, 'test prop');
+    });
     it('should updateMany documents', async () => {
       const { insertedIds } = await collection.insertMany([
         { many: true },
@@ -110,6 +124,20 @@ describe('AstraMongoose - collections.collection', async () => {
       assert.strictEqual(doc.dang, 'yep');
       assert.strictEqual(doc.count, 2);
     });
+    it('should updateMany documents with upsert', async () => {
+      const res = await collection.updateMany(
+        { name: 'test name' },
+        { $setOnInsert: { prop: 'test prop' } },
+        { upsert: true }
+      );
+      assert.ok(res.acknowledged);
+      assert.equal(res.upsertedCount, 1);
+      assert.ok(res.upsertedId);
+      await sleep();
+      const doc = await collection.findOne({ name: 'test name' });
+      assert.strictEqual(doc.name, 'test name');
+      assert.strictEqual(doc.prop, 'test prop');
+    });
     it('should replaceOne document', async () => {
       const { insertedId } = await collection.insertOne({ will: 'end' });
       await sleep();
@@ -124,6 +152,40 @@ describe('AstraMongoose - collections.collection', async () => {
       const res = await collection.deleteOne({ _id: insertedId });
       assert.strictEqual(res.value.will, 'die');
       assert.strictEqual(res.ok, true);
+    });
+    it('should findOneAndUpdate', async () => {
+      const { insertedId: _id } = await collection.insertOne({ name: 'before' });
+      await sleep();
+      let res = await collection.findOneAndUpdate({ _id }, { name: 'after' });
+      assert.ok(res.value);
+      assert.equal(res.value._id.toString(), _id.toString());
+      assert.equal(res.value.name, 'before');
+
+      res = await collection.findOneAndUpdate({ _id }, { name: 'after 2' }, { returnDocument: 'after' });
+      assert.ok(res.value);
+      assert.equal(res.value._id.toString(), _id.toString());
+      assert.equal(res.value.name, 'after 2');
+    });
+    it('should findOneAndUpdate with upsert', async () => {
+      let res = await collection.findOneAndUpdate(
+        { name: 'before' },
+        { name: 'after' },
+        { upsert: true }
+      );
+      assert.ok(!res.value);
+      
+      let doc = await collection.findOne({ name: 'after' });
+      assert.ok(doc);
+
+      await collection.deleteOne({ name: 'after' });
+
+      res = await collection.findOneAndUpdate(
+        { name: 'before' },
+        { name: 'after' },
+        { upsert: true, returnDocument: 'after' }
+      );
+      assert.ok(res.value);
+      assert.equal(res.value.name, 'after');
     });
   });
 

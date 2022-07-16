@@ -13,11 +13,15 @@
 // limitations under the License.
 
 import _ from 'lodash';
-import { DeleteResult, ModifyResult } from 'mongodb';
+import { DeleteResult, FindOneAndUpdateOptions, ModifyResult, ObjectId, UpdateOptions, UpdateResult } from 'mongodb';
 import { FindCursor } from './cursor';
 import { HTTPClient } from '@/src/client';
 import { formatQuery, addDefaultId, setOptionsAndCb, executeOperation } from './utils';
 import { inspect } from 'util';
+import mpath from 'mpath';
+
+// https://github.com/mongodb/node-mongodb-native/pull/3323
+type AstraUpdateResult = Omit<UpdateResult, 'upsertedId'> & { upsertedId: ObjectId | null };
 
 interface DocumentCallback {
   (err: Error | undefined, res: any): void;
@@ -103,24 +107,43 @@ export class Collection {
     data.acknowledged = true;
     data.matchedCount = 1;
     data.modifiedCount = 1;
+    data.upsertedCount = 0;
+    data.upsertedId = null;
     delete data.documentId;
     return data;
   }
 
-  async updateOne(query: any, update: any, options?: any, cb?: any) {
+  async updateOne(query: any, update: any, options?: UpdateOptions, cb?: any) {
     ({ options, cb } = setOptionsAndCb(options, cb));
-    return executeOperation(async () => {
+    return executeOperation(async (): Promise<AstraUpdateResult> => {
       const doc = await this.findOne(query, options);
       if (doc) {
         return await this.doUpdate(doc, update);
+      } else if (options?.upsert) {
+        const doc = await this._upsertDoc(query, update);
+        await this.insertOne(doc);
+
+        return {
+          modifiedCount: 0,
+          matchedCount: 0,
+          acknowledged: true,
+          upsertedCount: 1,
+          upsertedId: doc._id
+        };
       }
-      return { modifiedCount: 0, matchedCount: 0 };
+      return {
+        modifiedCount: 0,
+        matchedCount: 0,
+        acknowledged: true,
+        upsertedCount: 0,
+        upsertedId: null
+      };
     }, cb);
   }
 
-  async updateMany(query: any, update: any, options?: any, cb?: any) {
+  async updateMany(query: any, update: any, options?: UpdateOptions, cb?: any) {
     ({ options, cb } = setOptionsAndCb(options, cb));
-    return executeOperation(async () => {
+    return executeOperation(async (): Promise<AstraUpdateResult> => {
       const cursor = this.find(query, options);
       const docs = await cursor.toArray();
       if (docs.length) {
@@ -129,9 +152,32 @@ export class Collection {
             return this.doUpdate(doc, _.cloneDeep(update));
           })
         );
-        return { acknowledged: true, modifiedCount: res.length, matchedCount: res.length };
+        return {
+          acknowledged: true,
+          modifiedCount: res.length,
+          matchedCount: res.length,
+          upsertedCount: 0,
+          upsertedId: null
+        };
+      } else if (options?.upsert) {
+        const doc = await this._upsertDoc(query, update);
+        await this.insertOne(doc);
+
+        return {
+          modifiedCount: 0,
+          matchedCount: 0,
+          acknowledged: true,
+          upsertedCount: 1,
+          upsertedId: doc._id
+        };
       }
-      return { modifiedCount: 0, matchedCount: 0 };
+      return {
+        acknowledged: true,
+        modifiedCount: 0,
+        matchedCount: 0,
+        upsertedCount: 0,
+        upsertedId: null
+      };
     }, cb);
   }
 
@@ -251,16 +297,24 @@ export class Collection {
     return await this.updateMany(query, update, options, cb);
   }
 
-  async findOneAndUpdate(query: any, update: any, options: any, cb: any) {
+  async findOneAndUpdate(query: any, update: any, options?: FindOneAndUpdateOptions, cb?: any) {
     return executeOperation(async (): Promise<ModifyResult> => {
+      const res = { value: null, ok: 1 as const };
       let doc = await this.findOne(query, options);
+      let docId = null;
       if (doc) {
+        res.value = doc;
+        docId = doc._id;
         await this.doUpdate(doc, update);
+      } else if (options?.upsert) {
+        const upsertedDoc = this._upsertDoc(query, update);
+        await this.insertOne(upsertedDoc, options);
+        docId = upsertedDoc._id;
       }
-      if (options?.new === true || options?.returnOriginal === false || options?.returnDocument === 'after') {
-        doc = await this.findOne({ _id: doc._id }, options);
+      if (options?.returnDocument === 'after') {
+        res.value = await this.findOne({ _id: docId }, options);
       }
-      return { value: doc, ok: 1 };
+      return res;
     }, cb);
   }
 
@@ -296,9 +350,40 @@ export class Collection {
    * @param cb
    * @returns any
    */
-   async dropIndexes(cb?: any) {
+  async dropIndexes(cb?: any) {
     if (cb) {
       return cb(null);
     }
+  }
+
+  /**
+   * Calculates the document to upsert based on query and filter
+   * 
+   * @param filter
+   * @param update
+   * @returns any
+   */
+  _upsertDoc(filter: any, update: any) {
+    const doc = { ...filter };
+    const updateOperatorsToApply = new Set([
+      '$set',
+      '$setOnInsert',
+      '$inc'
+    ]);
+
+    for (const key of Object.keys(update)) {
+      if (key.charAt(0) === '$') {
+        if (!updateOperatorsToApply.has(key)) {
+          continue;
+        }
+        for (const operatorKey of Object.keys(update[key])) {
+          mpath.set(operatorKey, update[key][operatorKey], doc);
+        }
+      } else {
+        mpath.set(key, update[key], doc);
+      }
+    }
+
+    return doc;
   }
 }
