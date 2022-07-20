@@ -14,11 +14,7 @@
 
 name: Tests - AstraMongoose
 on:
-  pull_request:
-    branches:
-      - main
-  schedule:
-    - cron: '0 0 * * *'
+  push:
 jobs:
   tests:
     env:
