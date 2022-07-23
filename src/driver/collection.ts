@@ -72,6 +72,14 @@ export class Collection extends MongooseCollection {
     return await this.collection.remove(query, options, cb);
   }
 
+  async updateOne(query: any, update: any, options?: any, cb?: any) {
+    return await this.collection.updateOne(query, update, options, cb);
+  }
+
+  async updateMany(query: any, update: any, options?: any, cb?: any) {
+    return await this.collection.updateMany(query, update, options, cb);
+  }
+
   // No-ops
   async dropIndexes(cb?: any) {
     return await this.collection.dropIndexes(cb);
