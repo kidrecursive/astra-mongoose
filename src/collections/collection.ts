@@ -103,6 +103,21 @@ export class Collection {
         delete update.$inc;
       });
     }
+    if (update.$push) {
+      for (const key of Object.keys(update.$push)) {
+        if (doc[key] != null) {
+          if (!Array.isArray(doc[key])) {
+            throw new Error('Cannot $push to a non-array value');
+          }
+
+          update[key] = doc[key].concat(update.$push[key]);
+        } else {
+          update[key] = update.$push[key];
+        }
+      }
+
+      delete update.$push;
+    }
     const { data } = await this.httpClient.patch(`/${doc._id}`, update);
     data.acknowledged = true;
     data.matchedCount = 1;
