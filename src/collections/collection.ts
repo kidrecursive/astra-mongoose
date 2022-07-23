@@ -110,14 +110,32 @@ export class Collection {
             throw new Error('Cannot $push to a non-array value');
           }
 
-          update[key] = doc[key].concat(update.$push[key]);
+          if (update.$push[key]?.$each) {
+            update[key] = doc[key].concat(update.$push[key].$each);
+          } else {
+            update[key] = [...doc[key]];
+            update[key].push(update.$push[key]);
+          }
         } else {
-          update[key] = update.$push[key];
+          update[key] = update.$push[key]?.$each ? update.$push[key].$each : [update.$push[key]];
         }
       }
 
       delete update.$push;
     }
+
+    // Dotted field names not allowed currently, so replace any nested property updates with
+    // set on top-level field
+    for (const key of Object.keys(update)) {
+      const firstDot = key.indexOf('.');
+      if (firstDot === -1) {
+        continue;
+      }
+
+      update[key.slice(0, firstDot)] = update[key];
+      delete update[key];
+    }
+
     const { data } = await this.httpClient.patch(`/${doc._id}`, update);
     data.acknowledged = true;
     data.matchedCount = 1;
