@@ -14,18 +14,11 @@
 
 name: Tests - AstraMongoose
 on:
-  pull_request:
+  push:
     branches:
       - main
-  schedule:
-    - cron: '0 0 * * *'
 jobs:
   tests:
-    env:
-      ASTRA_DB_KEYSPACE: ${{ secrets.ASTRA_DB_KEYSPACE }}
-      ASTRA_DB_ID: ${{ secrets.ASTRA_DB_ID }}
-      ASTRA_DB_REGION: ${{ secrets.ASTRA_DB_REGION }}
-      ASTRA_DB_APPLICATION_TOKEN: ${{ secrets.ASTRA_DB_APPLICATION_TOKEN }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2

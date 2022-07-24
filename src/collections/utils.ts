@@ -31,6 +31,9 @@ export const formatQuery = (query: any, options?: any) => {
     if (options?.collation) {
       throw new Error('Collations are not supported');
     }
+    if (value == null) {
+      return value;
+    }
     if (types.includes(value.constructor.name)) {
       return { $eq: value };
     }

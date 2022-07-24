@@ -13,9 +13,15 @@
 // limitations under the License.
 
 import _ from 'lodash';
+import { DeleteResult, FindOneAndUpdateOptions, ModifyResult, ObjectId, UpdateOptions, UpdateResult } from 'mongodb';
 import { FindCursor } from './cursor';
 import { HTTPClient } from '@/src/client';
 import { formatQuery, addDefaultId, setOptionsAndCb, executeOperation } from './utils';
+import { inspect } from 'util';
+import mpath from 'mpath';
+
+// https://github.com/mongodb/node-mongodb-native/pull/3323
+type AstraUpdateResult = Omit<UpdateResult, 'upsertedId'> & { upsertedId: ObjectId | null };
 
 interface DocumentCallback {
   (err: Error | undefined, res: any): void;
@@ -97,28 +103,80 @@ export class Collection {
         delete update.$inc;
       });
     }
+    if (update.$push) {
+      for (const key of Object.keys(update.$push)) {
+        if (doc[key] != null) {
+          if (!Array.isArray(doc[key])) {
+            throw new Error('Cannot $push to a non-array value');
+          }
+
+          if (update.$push[key]?.$each) {
+            update[key] = doc[key].concat(update.$push[key].$each);
+          } else {
+            update[key] = [...doc[key]];
+            update[key].push(update.$push[key]);
+          }
+        } else {
+          update[key] = update.$push[key]?.$each ? update.$push[key].$each : [update.$push[key]];
+        }
+      }
+
+      delete update.$push;
+    }
+
+    // Dotted field names not allowed currently, so replace any nested property updates with
+    // set on top-level field
+    for (const key of Object.keys(update)) {
+      const firstDot = key.indexOf('.');
+      if (firstDot === -1) {
+        continue;
+      }
+
+      update[key.slice(0, firstDot)] = update[key];
+      delete update[key];
+    }
+
     const { data } = await this.httpClient.patch(`/${doc._id}`, update);
     data.acknowledged = true;
     data.matchedCount = 1;
     data.modifiedCount = 1;
+    data.upsertedCount = 0;
+    data.upsertedId = null;
     delete data.documentId;
     return data;
   }
 
-  async updateOne(query: any, update: any, options?: any, cb?: any) {
+  async updateOne(query: any, update: any, options?: UpdateOptions, cb?: any) {
     ({ options, cb } = setOptionsAndCb(options, cb));
-    return executeOperation(async () => {
+    return executeOperation(async (): Promise<AstraUpdateResult> => {
       const doc = await this.findOne(query, options);
       if (doc) {
         return await this.doUpdate(doc, update);
+      } else if (options?.upsert) {
+        const doc = await this._upsertDoc(query, update);
+        await this.insertOne(doc);
+
+        return {
+          modifiedCount: 0,
+          matchedCount: 0,
+          acknowledged: true,
+          upsertedCount: 1,
+          upsertedId: doc._id
+        };
       }
-      return { modifiedCount: 0, matchedCount: 0 };
+      return {
+        modifiedCount: 0,
+        matchedCount: 0,
+        acknowledged: true,
+        upsertedCount: 0,
+        upsertedId: null
+      };
     }, cb);
   }
 
-  async updateMany(query: any, update: any, options?: any, cb?: any) {
+  async updateMany(query: any, update: any, options?: UpdateOptions, cb?: any) {
     ({ options, cb } = setOptionsAndCb(options, cb));
-    return executeOperation(async () => {
+    return executeOperation(async (): Promise<AstraUpdateResult> => {
       const cursor = this.find(query, options);
       const docs = await cursor.toArray();
       if (docs.length) {
@@ -127,36 +185,78 @@ export class Collection {
             return this.doUpdate(doc, _.cloneDeep(update));
           })
         );
-        return { acknowledged: true, modifiedCount: res.length, matchedCount: res.length };
+        return {
+          acknowledged: true,
+          modifiedCount: res.length,
+          matchedCount: res.length,
+          upsertedCount: 0,
+          upsertedId: null
+        };
+      } else if (options?.upsert) {
+        const doc = await this._upsertDoc(query, update);
+        await this.insertOne(doc);
+
+        return {
+          modifiedCount: 0,
+          matchedCount: 0,
+          acknowledged: true,
+          upsertedCount: 1,
+          upsertedId: doc._id
+        };
       }
-      return { modifiedCount: 0, matchedCount: 0 };
+      return {
+        acknowledged: true,
+        modifiedCount: 0,
+        matchedCount: 0,
+        upsertedCount: 0,
+        upsertedId: null
+      };
     }, cb);
   }
 
   async replaceOne(query: any, newDoc: any, options?: any, cb?: any) {
     ({ options, cb } = setOptionsAndCb(options, cb));
-    return executeOperation(async () => {
+    return executeOperation(async (): Promise<AstraUpdateResult> => {
       const doc = await this.findOne(query, options);
       if (doc) {
-        const { data } = await this.httpClient.put(`/${doc._id}`, newDoc);
+        const { data } = await this.httpClient.put(`/${doc._id}`, { ...newDoc, _id: doc._id });
         data.acknowledged = true;
         data.matchedCount = 1;
         data.modifiedCount = 1;
         delete data.documentId;
         return data;
+      } else if (options?.upsert) {
+        const doc = this._upsertDoc(query, newDoc);
+        await this.insertOne(doc);
+
+        return {
+          acknowledged: true,
+          matchedCount: 0,
+          modifiedCount: 0,
+          upsertedCount: 1,
+          upsertedId: doc._id
+        };
       }
+
+      return {
+        acknowledged: true,
+        matchedCount: 0,
+        modifiedCount: 0,
+        upsertedCount: 0,
+        upsertedId: null
+      };
     }, cb);
   }
 
-  async deleteOne(query: any, options?: any, cb?: any) {
+  async deleteOne(query: any, options?: any, cb?: any): Promise<DeleteResult> {
     ({ options, cb } = setOptionsAndCb(options, cb));
-    return executeOperation(async () => {
+    return executeOperation(async (): Promise<DeleteResult> => {
       const doc = await this.findOne(query, options);
       if (doc) {
         await this.httpClient.delete(`/${doc._id}`);
-        return { value: doc, ok: true };
+        return { acknowledged: true, deletedCount: 1 };
       }
-      return { ok: false };
+      return { acknowledged: true, deletedCount: 0 };
     }, cb);
   }
 
@@ -166,6 +266,10 @@ export class Collection {
       const cursor = this.find(query, options);
       const docs = await cursor.toArray();
       if (docs.length) {
+        let withoutId = null;
+        if (withoutId = docs.find((doc: any) => doc._id === undefined)) {
+          throw new Error('Cannot delete document without an _id, deleting: ' + inspect(withoutId));
+        }
         const res = await Promise.all(
           docs.map((doc: any) => this.httpClient.delete(`/${doc._id}`))
         );
@@ -196,7 +300,7 @@ export class Collection {
   async distinct(key: any, filter: any, options?: any, cb?: any) {
     ({ options, cb } = setOptionsAndCb(options, cb));
     return executeOperation(async () => {
-      const cursor = this.find(filter, { ...options, limit: 1 });
+      const cursor = this.find(filter, { ...options });
       const res = await cursor.toArray();
       const list: string[] = [];
       if (res.length) {
@@ -225,7 +329,16 @@ export class Collection {
   }
 
   async findOneAndDelete(query: any, options: any, cb: any) {
-    return await this.deleteOne(query, options, cb);
+    return executeOperation(async (): Promise<ModifyResult> => {
+      let doc = await this.findOne(query, options);
+      if (doc) {
+        await this.httpClient.delete(`/${doc._id}`);
+      }
+      if (options?.new === true || options?.returnOriginal === false || options?.returnDocument === 'after') {
+        doc = null;
+      }
+      return { value: doc, ok: 1 };
+    }, cb);
   }
 
   async count(query: any, options: any, cb: any) {
@@ -236,8 +349,25 @@ export class Collection {
     return await this.updateMany(query, update, options, cb);
   }
 
-  async findOneAndUpdate(query: any, update: any, options: any, cb: any) {
-    return await this.updateOne(query, update, options, cb);
+  async findOneAndUpdate(query: any, update: any, options?: FindOneAndUpdateOptions, cb?: any) {
+    return executeOperation(async (): Promise<ModifyResult> => {
+      const res = { value: null, ok: 1 as const };
+      let doc = await this.findOne(query, options);
+      let docId = null;
+      if (doc) {
+        res.value = doc;
+        docId = doc._id;
+        await this.doUpdate(doc, update);
+      } else if (options?.upsert) {
+        const upsertedDoc = this._upsertDoc(query, update);
+        await this.insertOne(upsertedDoc, options);
+        docId = upsertedDoc._id;
+      }
+      if (options?.returnDocument === 'after') {
+        res.value = await this.findOne({ _id: docId }, options);
+      }
+      return res;
+    }, cb);
   }
 
   // NOOPS and unimplemented
@@ -263,5 +393,49 @@ export class Collection {
       return cb(index);
     }
     return index;
+  }
+
+  /**
+   *
+   * @param index
+   * @param options
+   * @param cb
+   * @returns any
+   */
+  async dropIndexes(cb?: any) {
+    if (cb) {
+      return cb(null);
+    }
+  }
+
+  /**
+   * Calculates the document to upsert based on query and filter
+   * 
+   * @param filter
+   * @param update
+   * @returns any
+   */
+  _upsertDoc(filter: any, update: any) {
+    const doc = { ...filter };
+    const updateOperatorsToApply = new Set([
+      '$set',
+      '$setOnInsert',
+      '$inc'
+    ]);
+
+    for (const key of Object.keys(update)) {
+      if (key.charAt(0) === '$') {
+        if (!updateOperatorsToApply.has(key)) {
+          continue;
+        }
+        for (const operatorKey of Object.keys(update[key])) {
+          mpath.set(operatorKey, update[key][operatorKey], doc);
+        }
+      } else {
+        mpath.set(key, update[key], doc);
+      }
+    }
+
+    return doc;
   }
 }

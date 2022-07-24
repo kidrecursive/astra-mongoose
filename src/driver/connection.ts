@@ -31,9 +31,9 @@ export class Connection extends MongooseConnection {
     return super.collection(name, options);
   }
 
-  async createCollection(name: string, callback: any) {
+  async createCollection(name: string, options: any, callback: any) {
     const db = this.client.db();
-    return await db.createCollection(name);
+    return await db.createCollection(name, options, callback);
   }
 
   async dropCollection(name: string, callback: any) {
@@ -70,6 +70,18 @@ export class Connection extends MongooseConnection {
         return resolve(_this);
       });
     });
+  }
+
+  /**
+   *
+   * @param cb
+   * @returns Client
+   */
+   doClose(force?: boolean, cb?: (err: Error | undefined) => void) {
+    if (cb) {
+      cb(undefined);
+    }
+    return this;
   }
 
   // NOOPS and unimplemented
